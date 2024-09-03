@@ -133,11 +133,23 @@
                 font-size: 14px;
             }
         }
+        .language-selector {
+            margin-bottom: 20px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Customer Onboarding</h2>
+        <div class="language-selector">
+            <label for="language">Choose Language:</label>
+            <select id="language" onchange="changeLanguage()">
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+            </select>
+        </div>
+
+        <h2 id="heading">Customer Onboarding</h2>
 
         <div class="progress-bar">
             <div class="active"></div>
@@ -148,7 +160,7 @@
         </div>
 
         <div class="field">
-            <label for="buildingName">What is the customer's resident building/house name:</label>
+            <label for="buildingName" id="buildingNameLabel">What is the customer's resident building/house name:</label>
             <div class="voice-input-container">
                 <input type="text" id="buildingName" disabled>
                 <i class="fas fa-microphone voice-icon" onclick="startVoiceInput('buildingName')"></i>
@@ -156,7 +168,7 @@
         </div>
 
         <div class="field">
-            <label for="street">Which Street the customer is living:</label>
+            <label for="street" id="streetLabel">Which Street the customer is living:</label>
             <div class="voice-input-container">
                 <input type="text" id="street" disabled>
                 <i class="fas fa-microphone voice-icon" onclick="startVoiceInput('street')"></i>
@@ -164,7 +176,7 @@
         </div>
 
         <div class="field">
-            <label for="city">Enter Customer's City Name:</label>
+            <label for="city" id="cityLabel">Enter Customer's City Name:</label>
             <div class="voice-input-container">
                 <input type="text" id="city" disabled>
                 <i class="fas fa-microphone voice-icon" onclick="startVoiceInput('city')"></i>
@@ -178,16 +190,63 @@
     </div>
 
     <script>
-        const fields = [
-            { id: 'buildingName', prompt: 'Please say your resident building or house name.' },
-            { id: 'street', prompt: 'Please say the street you live on.' },
-            { id: 'city', prompt: 'Please say your city name.' }
-        ];
+        const languages = {
+            en: {
+                heading: "Customer Onboarding",
+                buildingName: "What is the customer's resident building/house name:",
+                street: "Which Street the customer is living:",
+                city: "Enter Customer's City Name:",
+                startButton: "Start Voice Navigation",
+                prompts: [
+                    'Please say your resident building or house name.',
+                    'Please say the street you live on.',
+                    'Please say your city name.'
+                ],
+                voiceInit: 'Initializing voice input...',
+                thankYou: 'Thank you! All details have been captured.'
+            },
+            hi: {
+                heading: "ग्राहक ऑनबोर्डिंग",
+                buildingName: "ग्राहक के निवास भवन/घर का नाम क्या है:",
+                street: "जिस सड़क पर ग्राहक रह रहा है:",
+                city: "कृपया ग्राहक का शहर का नाम दर्ज करें:",
+                startButton: "वॉयस नेविगेशन शुरू करें",
+                prompts: [
+                    'कृपया अपने निवास भवन या घर का नाम बताएं।',
+                    'कृपया वह सड़क बताएं जिस पर आप रहते हैं।',
+                    'कृपया अपना शहर का नाम बताएं।'
+                ],
+                voiceInit: 'वॉयस इनपुट प्रारंभ कर रहा है...',
+                thankYou: 'धन्यवाद! सभी विवरण कैप्चर किए जा चुके हैं।'
+            }
+        };
 
+        let currentLanguage = 'en';
+        const fields = [
+            { id: 'buildingName', promptIndex: 0 },
+            { id: 'street', promptIndex: 1 },
+            { id: 'city', promptIndex: 2 }
+        ];
         let currentFieldIndex = 0;
         const voicePrompt = document.getElementById('voicePrompt');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const startButton = document.getElementById('startButton');
+
+        function changeLanguage() {
+            currentLanguage = document.getElementById('language').value;
+            updateContent();
+        }
+
+        function updateContent() {
+            const lang = languages[currentLanguage];
+            
+            document.getElementById('heading').textContent = lang.heading;
+            document.getElementById('buildingNameLabel').textContent = lang.buildingName;
+            document.getElementById('streetLabel').textContent = lang.street;
+            document.getElementById('cityLabel').textContent = lang.city;
+            startButton.textContent = lang.startButton;
+            voicePrompt.textContent = lang.voiceInit;
+        }
 
         function updateProgress() {
             const progressBars = document.querySelectorAll('.progress-bar div');
@@ -203,6 +262,7 @@
         function speakText(text) {
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
                 utterance.onend = function() {
                     startVoiceInput(fields[currentFieldIndex].id);
                 };
@@ -216,7 +276,7 @@
 
         function startVoiceInput(fieldId) {
             const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = 'en-US';
+            recognition.lang = 'en-US';  // Always capture input in English
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
 
@@ -227,7 +287,7 @@
                 const transcript = event.results[0][0].transcript;
                 document.getElementById(fieldId).value = transcript;
                 loadingIndicator.style.display = 'none';
-                new Audio('https://www.soundjay.com/button/beep-07.wav').play(); // Feedback sound
+                new Audio('https://www.soundjay.com/button/beep-07.wav').play();
                 moveToNextField();
             };
 
@@ -244,22 +304,24 @@
                 const nextField = document.getElementById(fields[currentFieldIndex].id);
                 nextField.disabled = false;
                 nextField.focus();
-                voicePrompt.textContent = fields[currentFieldIndex].prompt;
-                speakText(fields[currentFieldIndex].prompt);
+                voicePrompt.textContent = languages[currentLanguage].prompts[currentFieldIndex];
+                speakText(languages[currentLanguage].prompts[currentFieldIndex]);
                 updateProgress();
             } else {
-                voicePrompt.textContent = 'Thank you! All details have been captured.';
+                voicePrompt.textContent = languages[currentLanguage].thankYou;
                 loadingIndicator.style.display = 'none';
             }
         }
 
-        startButton.addEventListener('click', () => {
-            // Initialize the first field and start voice input on button click
+        startButton.addEventListener('click', function() {
             document.getElementById(fields[currentFieldIndex].id).disabled = false;
-            voicePrompt.textContent = fields[currentFieldIndex].prompt;
-            speakText(fields[currentFieldIndex].prompt);
+            voicePrompt.textContent = languages[currentLanguage].prompts[currentFieldIndex];
+            speakText(languages[currentLanguage].prompts[currentFieldIndex]);
             updateProgress();
         });
+
+        // Initialize the first content in the selected language
+        updateContent();
     </script>
 </body>
 </html>
