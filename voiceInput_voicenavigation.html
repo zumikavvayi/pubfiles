@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Navigation Form</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 0;
+        }
+        h2 {
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .field {
+            margin-bottom: 20px;
+            font-size: 18px;
+            width: 100%;
+            max-width: 400px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background-color: #333333;
+            border: 1px solid #444444;
+            color: #ffffff;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        input:focus {
+            background-color: #444444;
+        }
+        #voicePrompt {
+            font-weight: bold;
+            color: #00ffcc;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 0 10px;
+        }
+        input:disabled {
+            background-color: #2c2c2c;
+            color: #666666;
+        }
+        #loadingIndicator {
+            border: 4px solid #333;
+            border-top: 4px solid #00ffcc;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #progress {
+            margin-top: 20px;
+            color: #00ffcc;
+            text-align: center;
+            font-size: 16px;
+        }
+        .toggle-container {
+            margin-bottom: 20px;
+        }
+        .toggle-container label {
+            font-size: 16px;
+            color: #cccccc;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .toggle-container input[type="checkbox"] {
+            cursor: pointer;
+        }
+        .action-button {
+            background-color: #00ffcc;
+            color: #1e1e1e;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .action-button:hover {
+            background-color: #00cc99;
+        }
+    </style>
+</head>
+<body>
+    <h2>User Address Details</h2>
+
+    <div class="toggle-container">
+        <label for="voiceToggle">Enable Voice Narration:</label>
+        <input type="checkbox" id="voiceToggle" checked>
+    </div>
+
+    <button class="action-button" id="startButton">Start Voice Navigation</button>
+    
+    <div id="voicePrompt">Initializing voice input...</div>
+    <div id="loadingIndicator"></div>
+
+    <div class="field">
+        <label for="city">City:</label>
+        <input type="text" id="city" disabled>
+    </div>
+
+    <div class="field">
+        <label for="street">Street:</label>
+        <input type="text" id="street" disabled>
+    </div>
+
+    <div class="field">
+        <label for="nationality">Nationality:</label>
+        <input type="text" id="nationality" disabled>
+    </div>
+
+    <div class="field">
+        <label for="birthPlace">Place of Birth:</label>
+        <input type="text" id="birthPlace" disabled>
+    </div>
+
+    <div id="progress"></div>
+
+    <script>
+        const fields = [
+            { id: 'city', prompt: 'Please say your city.' },
+            { id: 'street', prompt: 'Please say your street.' },
+            { id: 'nationality', prompt: 'Please say your nationality.' },
+            { id: 'birthPlace', prompt: 'Please say your place of birth.' }
+        ];
+
+        let currentFieldIndex = 0;
+        const voicePrompt = document.getElementById('voicePrompt');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const progress = document.getElementById('progress');
+        const voiceToggle = document.getElementById('voiceToggle');
+        const startButton = document.getElementById('startButton');
+
+        function updateProgress() {
+            progress.textContent = `Step ${currentFieldIndex + 1} of ${fields.length}`;
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.onend = function() {
+                    startVoiceInput();
+                };
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.error('Speech Synthesis API is not supported in this browser.');
+                voicePrompt.textContent = text;
+                startVoiceInput();
+            }
+        }
+
+        function startVoiceInput() {
+            if (!voiceToggle.checked) {
+                moveToNextField();
+                return;
+            }
+
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.start();
+            loadingIndicator.style.display = 'block';
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById(fields[currentFieldIndex].id).value = transcript;
+                loadingIndicator.style.display = 'none';
+                new Audio('https://www.soundjay.com/button/beep-07.wav').play(); // Feedback sound
+                moveToNextField();
+            };
+
+            recognition.onerror = function(event) {
+                voicePrompt.textContent = 'Sorry, I didn\'t catch that. Please try again.';
+                loadingIndicator.style.display = 'none';
+                startVoiceInput();
+            };
+        }
+
+        function moveToNextField() {
+            if (currentFieldIndex < fields.length - 1) {
+                currentFieldIndex++;
+                const nextField = document.getElementById(fields[currentFieldIndex].id);
+                nextField.disabled = false;
+                nextField.focus();
+                if (voiceToggle.checked) {
+                    voicePrompt.textContent = fields[currentFieldIndex].prompt;
+                    speakText(fields[currentFieldIndex].prompt);
+                }
+                updateProgress();
+            } else {
+                voicePrompt.textContent = 'Thank you! All details have been captured.';
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        startButton.addEventListener('click', () => {
+            // Initialize the first field and start voice input on button click
+            document.getElementById(fields[currentFieldIndex].id).disabled = false;
+            if (voiceToggle.checked) {
+                voicePrompt.textContent = fields[currentFieldIndex].prompt;
+                speakText(fields[currentFieldIndex].prompt);
+            }
+            updateProgress();
+        });
+    </script>
+</body>
+</html>
